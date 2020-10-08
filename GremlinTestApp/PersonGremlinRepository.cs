@@ -98,9 +98,9 @@ namespace GremlinTestApp
                     queryBindings.Add($"_personKnows{i}", knows.ElementAt(i));
                     queryBindings.Add($"_personKnows{i}Since", DateTime.UtcNow);
                 }
-            }
 
-            personQuery.Append(".outV()"); // We want to return the Person Vertex, without this the Edge is returned
+                personQuery.Append(".outV()"); // We want to return the Person Vertex, without this the Edge is returned
+            }
 
             var result = await ExecuteQueryAsync(personQuery.ToString(), queryBindings);
 
@@ -121,6 +121,28 @@ namespace GremlinTestApp
             };
 
             _ = await ExecuteQueryAsync(personQuery, queryBindings);
+        }
+
+        public IAsyncEnumerable<PersonVertex> GetPeopleAsync(int page, int pageSize)
+        {
+            async IAsyncEnumerator<PersonVertex> ExecuteAsyncEnumerableQuery(CancellationToken cancelToken)
+            {
+                var peopleQuery = "g.V().hasLabel('person').range(_page, -1).limit(_pageSize)";
+                var queryBindings = new Dictionary<string, object>()
+                {
+                    { "_page", page },
+                    { "_pageSize", pageSize }
+                };
+
+                var resultSet = await ExecuteQueryAsync(peopleQuery, queryBindings);
+
+                foreach (var person in resultSet)
+                {
+                    yield return await PersonVertex.MapAsync(person, cancelToken);
+                }
+            }
+
+            return AsyncEnumerable.Create(ExecuteAsyncEnumerableQuery);
         }
 
         private async Task<ResultSet<Dictionary<string, object>>> ExecuteQueryAsync(string query, Dictionary<string, object> queryBindings)
@@ -165,7 +187,7 @@ namespace GremlinTestApp
                 }
             }
 
-            _logger.LogInformation("Query executed in [{ServerTime}] using [{RequestUnits}] RU/s and resulted in a Status [{StatusCode}]", serverTimeMs, requestCharge, serverStatusCode);
+            Console.WriteLine("Query executed in [{0}] using [{1}] RU/s and resulted in a Status [{2}]", serverTimeMs, requestCharge, serverStatusCode);
         }
     }
 }
